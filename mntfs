@@ -1,0 +1,85 @@
+#!/bin/bash
+
+DEFAULT_NTFS_FOLDER="/Volumes/NTFS"
+use_finder=0
+
+help() {
+    cat <<EOF
+mntfs [-f] <disk_name> <folder>
+
+  disk_name : the identifier of the disk to mount.
+              it can be find using the utility tool 'diskutil'.
+
+  folder    : the folder where to mount the disk.
+
+  -f        : option to open the directory with the finder automatically.
+EOF
+    exit 1
+}
+
+info() {
+    echo "$@"
+}
+
+error() {
+    echo "$@" >&2
+}
+
+wrap() {
+    $@ || {
+        error "'$@': command failed.";
+        exit 1
+    }
+}
+
+create_ntfs_folder() {
+    [ -z "$1" ] && error "create_folder: expects one parameter." && exit 1
+    if [ -d "$1" ]; then
+        info "The folder '$1' already exists. Try to using it."
+    else
+        info "Creating the folder to mount: '$1'"
+        wrap sudo mkdir "$1"
+    fi
+}
+
+mntfs() {
+    echo "$@"
+    if [ "$#" = "0" ]; then
+        info "disk_name has to be given."
+        info "use the command 'diskutil list' to have the list of available"
+        info "identifiers"
+        # TODO: maybe try to identifiate available identifiers ?
+        exit 1
+    elif [ "$#" = "1" ]; then
+        disk_name="$1"
+        ntfs_folder="$DEFAULT_NTFS_FOLDER"
+    elif [ "$#" = "2" ]; then
+        disk_name="$1"
+        ntfs_folder="$2"
+    else
+        help
+    fi
+
+    wrap create_ntfs_folder "$ntfs_folder"
+    wrap sudo ntfs-3g "$disk_name" "$ntf_folder" -olocal -oallow_other
+
+    [ "$use_finder" = "1" ] && {
+        info "Opening with Finder.";
+        wrap open "$ntfs_folder"
+    }
+}
+
+OPTIND=1 # Reset getopts.
+
+while getopts "hf" opt; do
+    case "$opt" in
+        (h) help;;
+        (f) use_finder=1;;
+        (*) help;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+mntfs "$@"
+
